@@ -165,18 +165,24 @@ Direct calculation on geographic coordinates (`EPSG:4326`) causes extreme distor
 3. **Install dependencies**:
    ```bash
    pip install -r requirements.txt
+   # Or using uv:
+   # uv pip install -r requirements.txt
    ```
 
 4. **Start the API server**:
    ```bash
    uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+   
+   # Or run directly with uv without manual environment activation:
+   # uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
    ```
 
 5. **Access the application**:
-   - Interactive Geospatial Dashboard: [http://localhost:8000/dashboard](http://localhost:8000/dashboard)
    - Interactive Swagger API Documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
    - ReDoc Alternative Documentation: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+   - API Root & Service Metadata: [http://localhost:8000/](http://localhost:8000/)
    - Health Check: [http://localhost:8000/api/health](http://localhost:8000/api/health)
+   - *(Note: A visual testing UI dashboard is available on the dedicated `testbackend` branch)*
 
 ---
 
@@ -238,11 +244,11 @@ curl -X POST "http://localhost:8000/api/files/" \
 ---
 
 ### 2. Get File Information
-**Endpoint**: `GET /api/files/{id}`  
+**Endpoint**: `GET /api/files/{id}/` *(or `/api/files/{id}`)*  
 
 **cURL Request**:
 ```bash
-curl -X GET "http://localhost:8000/api/files/e4f8d1de1482"
+curl -X GET "http://localhost:8000/api/files/e4f8d1de1482/"
 ```
 
 **Response (200 OK)**:
@@ -259,11 +265,11 @@ curl -X GET "http://localhost:8000/api/files/e4f8d1de1482"
 ---
 
 ### 3. Get File Measurements
-**Endpoint**: `GET /api/files/{id}/measurements`  
+**Endpoint**: `GET /api/files/{id}/measurements/` *(or `/api/files/{id}/measurements`)*  
 
 **cURL Request**:
 ```bash
-curl -X GET "http://localhost:8000/api/files/e4f8d1de1482/measurements"
+curl -X GET "http://localhost:8000/api/files/e4f8d1de1482/measurements/"
 ```
 
 **Response (200 OK)**:

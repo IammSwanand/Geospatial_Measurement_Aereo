@@ -27,6 +27,13 @@ router = APIRouter(prefix="/files", tags=["Files"])
     status_code=status.HTTP_202_ACCEPTED,
     dependencies=[Depends(rate_limit(settings.RATE_LIMIT_UPLOADS_PER_MINUTE, 60, bucket="uploads"))],
 )
+@router.post(
+    "",
+    response_model=FileBaseResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    dependencies=[Depends(rate_limit(settings.RATE_LIMIT_UPLOADS_PER_MINUTE, 60, bucket="uploads"))],
+    include_in_schema=False,
+)
 async def upload_file(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="Geospatial file (.zip containing Shapefile or .kml)"),
@@ -111,9 +118,15 @@ async def upload_file(
         return file_record
 
 @router.get(
+    "/{file_id}/",
+    response_model=FileBaseResponse,
+    dependencies=[Depends(rate_limit(settings.RATE_LIMIT_REQUESTS_PER_MINUTE, 60, bucket="api"))],
+)
+@router.get(
     "/{file_id}",
     response_model=FileBaseResponse,
     dependencies=[Depends(rate_limit(settings.RATE_LIMIT_REQUESTS_PER_MINUTE, 60, bucket="api"))],
+    include_in_schema=False,
 )
 def get_file_info(file_id: str, db: Session = Depends(get_db)):
     """
@@ -136,9 +149,15 @@ def get_file_info(file_id: str, db: Session = Depends(get_db)):
     return file_record
 
 @router.get(
+    "/{file_id}/measurements/",
+    response_model=FileMeasurementsResponse,
+    dependencies=[Depends(rate_limit(settings.RATE_LIMIT_REQUESTS_PER_MINUTE, 60, bucket="api"))],
+)
+@router.get(
     "/{file_id}/measurements",
     response_model=FileMeasurementsResponse,
     dependencies=[Depends(rate_limit(settings.RATE_LIMIT_REQUESTS_PER_MINUTE, 60, bucket="api"))],
+    include_in_schema=False,
 )
 def get_file_measurements(file_id: str, db: Session = Depends(get_db)):
     """
@@ -225,6 +244,12 @@ def get_file_measurements(file_id: str, db: Session = Depends(get_db)):
     response_model=List[FileDetailResponse],
     dependencies=[Depends(rate_limit(settings.RATE_LIMIT_REQUESTS_PER_MINUTE, 60, bucket="api"))],
 )
+@router.get(
+    "",
+    response_model=List[FileDetailResponse],
+    dependencies=[Depends(rate_limit(settings.RATE_LIMIT_REQUESTS_PER_MINUTE, 60, bucket="api"))],
+    include_in_schema=False,
+)
 def list_files(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -237,7 +262,8 @@ def list_files(
         query = query.filter(FileRecord.status == status_filter.upper())
     return query.order_by(FileRecord.created_at.desc()).offset(skip).limit(limit).all()
 
-@router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{file_id}/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT, include_in_schema=False)
 def delete_file(file_id: str, db: Session = Depends(get_db)):
     """Deletes an uploaded file record and its extracted features."""
     file_record = db.query(FileRecord).filter(FileRecord.id == file_id).first()
