@@ -99,14 +99,11 @@ class KMLParser(BaseGeospatialParser):
     def _parse_coordinates(self, text: str) -> List[Tuple[float, float]]:
         """Parses KML coordinate string format: 'lon,lat,alt lon,lat,alt ...'"""
         coords: List[Tuple[float, float]] = []
-        raw_tuples = text.strip().split()
-        for raw in raw_tuples:
+        for raw in text.split():
             parts = raw.split(",")
             if len(parts) >= 2:
                 try:
-                    lon = float(parts[0].strip())
-                    lat = float(parts[1].strip())
-                    coords.append((lon, lat))
+                    coords.append((float(parts[0]), float(parts[1])))
                 except ValueError:
                     continue
         return coords

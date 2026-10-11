@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, Text, JSON, Index
 from sqlalchemy.orm import relationship
 from app.db.session import Base
 
@@ -26,6 +26,9 @@ class FileRecord(Base):
 
 class FeatureRecord(Base):
     __tablename__ = "features"
+    __table_args__ = (
+        Index("ix_features_file_id_idx", "file_id", "feature_index"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     file_id = Column(String(36), ForeignKey("files.id", ondelete="CASCADE"), index=True, nullable=False)

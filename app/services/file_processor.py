@@ -34,39 +34,38 @@ def process_geospatial_file(file_id: str, file_path_str: str, db: Optional[Sessi
         file_record.crs = dataset.crs
         file_record.feature_count = dataset.feature_count
 
-        feature_records: list[FeatureRecord] = []
+        feature_dicts: list[dict] = []
         for feature in dataset.features:
             t_feat_start = time.perf_counter()
             measurements, proj_crs, notes = MeasurementService.calculate_measurements(
                 feature.geometry, feature.crs
             )
             feat_duration_ms = round((time.perf_counter() - t_feat_start) * 1000, 3)
-            geom_geojson = mapping(feature.geometry)
 
-            feat_record = FeatureRecord(
-                file_id=file_record.id,
-                feature_index=feature.index,
-                feature_identifier=feature.identifier,
-                geometry_type=feature.geometry_type,
-                geometry=geom_geojson,
-                properties=feature.properties,
-                original_crs=feature.crs,
-                projected_crs=proj_crs,
-                measurements=measurements,
-                processing_time_ms=feat_duration_ms,
-                notes=notes,
-            )
-            feature_records.append(feat_record)
+            feature_dicts.append({
+                "file_id": file_record.id,
+                "feature_index": feature.index,
+                "feature_identifier": feature.identifier,
+                "geometry_type": feature.geometry_type,
+                "geometry": mapping(feature.geometry),
+                "properties": feature.properties,
+                "original_crs": feature.crs,
+                "projected_crs": proj_crs,
+                "measurements": measurements,
+                "processing_time_ms": feat_duration_ms,
+                "notes": notes,
+            })
 
-        # Batch insert for high performance and scalability
-        db.bulk_save_objects(feature_records)
+        # High-performance bulk insert bypassing ORM object instantiation overhead
+        if feature_dicts:
+            db.bulk_insert_mappings(FeatureRecord, feature_dicts)
         total_duration_ms = round((time.perf_counter() - t_file_start) * 1000, 2)
         file_record.processing_time_ms = total_duration_ms
         file_record.status = "COMPLETED"
         db.commit()
         logger.info(
             "Successfully processed file %s with %d features in %.2f ms.",
-            file_id, len(feature_records), total_duration_ms
+            file_id, len(feature_dicts), total_duration_ms
         )
 
     except Exception as e:
