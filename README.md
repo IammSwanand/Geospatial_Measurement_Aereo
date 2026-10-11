@@ -82,41 +82,18 @@ AereoIO/
 ### File-Processing Flow
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor Client
-    participant API as FastAPI API
-    participant Worker as Background Task
-    participant Parser as Unified Parser
-    participant CRS as CRS Engine
-    participant DB as SQLite / PostgreSQL
-
-    Client->>API: POST /api/files/ (multipart/form-data)
-    API->>API: Validate file format & save to storage
-    API->>DB: Create FileRecord (status="PROCESSING")
-    API-->>Client: 202 Accepted (id, status="PROCESSING")
-    
-    API->>Worker: Dispatch background task
-    Worker->>Parser: Parse file (.zip or .kml)
-    Parser-->>Worker: ParsedDataset (features, CRS)
-    
-    loop For each Feature
-        Worker->>CRS: Reproject to dynamic metric UTM zone
-        CRS-->>Worker: Projected geometry (in meters)
-        Worker->>Worker: Calculate Area (Polygon) or Length (LineString)
-    end
-    
-    Worker->>DB: Bulk insert FeatureRecords & set FileRecord status="COMPLETED"
-    
-    Client->>API: GET /api/files/{id}/
-    API->>DB: Query FileRecord
-    DB-->>API: File metadata
-    API-->>Client: 200 OK (status="COMPLETED", feature_count)
-
-    Client->>API: GET /api/files/{id}/measurements/
-    API->>DB: Query FeatureRecords
-    DB-->>API: Features with calculated metrics
-    API-->>Client: 200 OK (measurements & summary breakdown)
+graph TD
+    A[1. Upload File: POST /api/files/] --> B[2. Validate Security & Storage]
+    B --> C[3. Parse Features & Geometries]
+    C --> D[4. CRS Reprojection to Local Metric UTM]
+    D --> E{5. Geometry Type}
+    E -->|Polygon| F[Calculate Area: sq m, ha, sq km]
+    E -->|LineString| G[Calculate Length: m, km]
+    E -->|Point or Other| H[No Measurement: Graceful Note]
+    F --> I[(Save to Database: COMPLETED)]
+    G --> I
+    H --> I
+    I --> J[6. Query Results: GET /api/files/:id/measurements/]
 ```
 
 ### Measurement Calculation Flow
