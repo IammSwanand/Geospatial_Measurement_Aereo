@@ -13,9 +13,9 @@ A high-performance, production-ready backend service built with **FastAPI** that
   - [CRS Handling & Reprojection Strategy](#crs-handling--reprojection-strategy)
 - [3. Setup & Running Locally](#3-setup--running-locally)
   - [Prerequisites](#prerequisites)
-  - [Local Installation](#local-installation)
-  - [Running with Docker & Docker Compose](#running-with-docker--docker-compose)
-  - [Running Automated Tests](#running-automated-tests)
+  - [Local Installation & Running](#local-installation--running)
+  - [Accessing the Application](#accessing-the-application)
+  - [Testing with Provided Sample Files](#testing-with-provided-sample-files)
 - [4. API Specification & Examples](#4-api-specification--examples)
   - [POST /api/files/](#1-upload-file)
   - [GET /api/files/{id}/](#2-get-file-information)
@@ -143,75 +143,53 @@ Direct calculation on geographic coordinates (`EPSG:4326`) causes extreme distor
 - Python 3.11+
 - Git
 
-### Local Installation
+### Local Installation & Running
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/<your-username>/AereoIO.git
-   cd AereoIO
-   ```
+#### Option A: Quick Start with `uv` (Recommended)
+Run the application directly with zero manual environment management:
+```bash
+# 1. Clone repository
+git clone https://github.com/<your-username>/AereoIO.git
+cd AereoIO
 
-2. **Create and activate a virtual environment**:
-   ```bash
-   # On macOS/Linux:
-   python3 -m venv .venv
-   source .venv/bin/activate
+# 2. Run API server immediately via uv
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+*(Alternatively with standard `pip`: `python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt && uvicorn app.main:app --reload`)*
 
-   # On Windows (PowerShell):
-   python -m venv .venv
-   .venv\Scripts\Activate.ps1
-   ```
-
-3. **Install dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   # Or using uv:
-   # uv pip install -r requirements.txt
-   ```
-
-4. **Start the API server**:
-   ```bash
-   uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   
-   # Or run directly with uv without manual environment activation:
-   # uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-   ```
-
-5. **Access the application**:
-   - Interactive Swagger API Documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
-   - ReDoc Alternative Documentation: [http://localhost:8000/redoc](http://localhost:8000/redoc)
-   - API Root & Service Metadata: [http://localhost:8000/](http://localhost:8000/)
-   - Health Check: [http://localhost:8000/api/health](http://localhost:8000/api/health)
-   - *(Note: A visual testing UI dashboard is available on the dedicated `testbackend` branch)*
-
----
-
-### Running with Docker & Docker Compose
-
-To spin up the service in an isolated container environment:
-
+#### Option B: Docker & Docker Compose
 ```bash
 docker compose up --build -d
 ```
 
-To view logs:
-```bash
-docker compose logs -f api
-```
-
-To stop:
-```bash
-docker compose down
-```
+### Accessing the Application
+- **Simple Test UI**: [http://localhost:8000/ui](http://localhost:8000/ui) *(Upload and view results easily)*
+- **Swagger API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc Docs**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+- **Health Check**: [http://localhost:8000/api/health](http://localhost:8000/api/health)
 
 ---
 
-### Running Automated Tests
+### Testing with Provided Sample Files
 
-Run the full automated test suite (including unit tests, parser tests, CRS projection tests, and API integration tests):
+Two sample geospatial datasets are included directly in the `tests/` directory for immediate testing:
+- **KML Dataset**: `tests/KML_Samples.kml`
+- **Shapefile Dataset**: `tests/ne_110m_populated_places.zip`
 
+#### Option 1: Quick Web Test Interface (Frontend)
+1. Open **[http://localhost:8000/ui](http://localhost:8000/ui)** in your browser.
+2. Select either `tests/KML_Samples.kml` or `tests/ne_110m_populated_places.zip`.
+3. Click **Upload & Measure** to instantly view processing status, geometry breakdown, and calculated area/length metrics.
+
+#### Option 2: Command Line (cURL)
 ```bash
-pytest -v
+# Upload and process KML
+curl -X POST "http://localhost:8000/api/files/?sync=true" \
+  -F "file=@tests/KML_Samples.kml"
+
+# Upload and process Zipped Shapefile
+curl -X POST "http://localhost:8000/api/files/?sync=true" \
+  -F "file=@tests/ne_110m_populated_places.zip"
 ```
 
 ---
@@ -227,7 +205,7 @@ pytest -v
 **cURL Request**:
 ```bash
 curl -X POST "http://localhost:8000/api/files/" \
-  -F "file=@sample_data/sample_survey.kml"
+  -F "file=@tests/KML_Samples.kml"
 ```
 
 **Response (202 Accepted)**:

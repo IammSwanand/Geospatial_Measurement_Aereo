@@ -1,7 +1,8 @@
+from pathlib import Path
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from app.core.config import settings
 from app.core.exceptions import GeospatialError, InvalidGeospatialFileError, UnsupportedFileFormatError
 from app.db.session import init_db
@@ -57,6 +58,11 @@ async def geospatial_error_handler(request: Request, exc: GeospatialError):
 # Include API router under /api
 app.include_router(api_router, prefix="/api")
 
+@app.get("/ui", tags=["UI"], include_in_schema=False)
+def test_ui():
+    html_path = Path(__file__).parent / "static" / "index.html"
+    return FileResponse(html_path)
+
 @app.get("/", tags=["Root"])
 def root():
     return {
@@ -64,6 +70,7 @@ def root():
         "version": settings.VERSION,
         "documentation": "/docs",
         "endpoints": {
+            "test_ui": "GET /ui",
             "upload_file": "POST /api/files/",
             "get_file_info": "GET /api/files/{id}/",
             "get_file_measurements": "GET /api/files/{id}/measurements/",
