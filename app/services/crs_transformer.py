@@ -15,6 +15,25 @@ def get_transformer(from_crs_str: str, to_crs_str: str) -> Transformer:
     """
     return Transformer.from_crs(from_crs_str, to_crs_str, always_xy=True)
 
+@lru_cache(maxsize=128)
+def get_parsed_crs(crs_str: str) -> CRS:
+    """Cached parsing of CRS definitions to avoid redundant lookups."""
+    return CRS.from_user_input(crs_str)
+
+@lru_cache(maxsize=128)
+def _cached_normalize_crs(crs_str: str) -> str:
+    try:
+        crs_obj = get_parsed_crs(crs_str)
+        epsg = crs_obj.to_epsg()
+        if epsg:
+            return f"EPSG:{epsg}"
+        auth = crs_obj.to_authority()
+        if auth:
+            return f"{auth[0]}:{auth[1]}"
+        return crs_str
+    except Exception:
+        return crs_str
+
 class CRSTransformer:
     """
     Handles Coordinate Reference System (CRS) inspection and reprojection.
@@ -29,18 +48,9 @@ class CRSTransformer:
         if not crs_input:
             return "EPSG:4326"
         crs_str = str(crs_input).strip()
-        try:
-            crs_obj = CRS.from_user_input(crs_str)
-            # Return EPSG code if available, otherwise authority or WKT
-            epsg = crs_obj.to_epsg()
-            if epsg:
-                return f"EPSG:{epsg}"
-            auth = crs_obj.to_authority()
-            if auth:
-                return f"{auth[0]}:{auth[1]}"
-            return crs_str
-        except Exception:
-            return crs_str
+        if crs_str.upper() in ("EPSG:4326", "WGS84", "WGS 84", "OGC:CRS84"):
+            return "EPSG:4326"
+        return _cached_normalize_crs(crs_str)
 
     @staticmethod
     def get_utm_epsg_for_coordinates(lon: float, lat: float) -> str:
@@ -74,12 +84,15 @@ class CRSTransformer:
         severely distorts areas), it can be used directly.
         Otherwise, determines the local UTM zone based on geometry centroid.
         """
+        # Fast path for common geographic CRS: directly calculate centroid without parsing CRS
+        if source_crs_str == "EPSG:4326":
+            centroid = geometry.centroid
+            return cls.get_utm_epsg_for_coordinates(centroid.x, centroid.y)
+
         try:
-            source_crs = CRS.from_user_input(source_crs_str)
+            source_crs = get_parsed_crs(source_crs_str)
             if source_crs.is_projected:
                 epsg = source_crs.to_epsg()
-                # EPSG:3857 (Web Mercator) distorts area by up to 400% away from equator.
-                # In that case, reproject to local UTM.
                 if epsg != 3857:
                     return f"EPSG:{epsg}" if epsg else source_crs_str
         except Exception:
@@ -87,17 +100,11 @@ class CRSTransformer:
 
         # Calculate centroid in WGS84 coordinates to find UTM zone
         try:
-            if source_crs_str.upper() not in ("EPSG:4326", "WGS84", "WGS 84"):
-                # Transform to 4326 first to inspect lon/lat
-                t_to_4326 = get_transformer(source_crs_str, "EPSG:4326")
-                geom_4326 = shapely.ops.transform(t_to_4326.transform, geometry)
-                centroid = geom_4326.centroid
-            else:
-                centroid = geometry.centroid
-
+            t_to_4326 = get_transformer(source_crs_str, "EPSG:4326")
+            geom_4326 = shapely.ops.transform(t_to_4326.transform, geometry)
+            centroid = geom_4326.centroid
             return cls.get_utm_epsg_for_coordinates(centroid.x, centroid.y)
-        except Exception as e:
-            # Fallback to standard UTM 33N or World Cylindrical Equal Area
+        except Exception:
             return "EPSG:32633"
 
     @classmethod
