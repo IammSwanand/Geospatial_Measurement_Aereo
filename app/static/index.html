@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AereoIO - Geospatial Measurement & Performance Monitor</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS for Geospatial Visualization -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --panel-bg: rgba(22, 30, 49, 0.75);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    header {
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 1rem 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 1.1rem;
+      color: #fff;
+      box-shadow: 0 0 15px var(--accent-glow);
+    }
+
+    .brand-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      padding: 0.35rem 0.75rem;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.25);
+      color: var(--success);
+      border-radius: 9999px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--success);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.9); }
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Main Container */
+    main {
+      flex: 1;
+      padding: 2rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    /* Grid Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 2rem;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Panels */
+    .panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 0.75rem;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Dropzone */
+    .dropzone {
+      border: 2px dashed rgba(56, 189, 248, 0.35);
+      background: rgba(56, 189, 248, 0.03);
+      border-radius: 10px;
+      padding: 2.25rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .dropzone input[type="file"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .drop-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .drop-text {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .drop-sub {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .file-badge {
+      margin-top: 0.75rem;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: none;
+      word-break: break-all;
+    }
+
+    /* Options */
+    .options-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .option-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: .3s;
+      border-radius: 24px;
+      border: 1px solid var(--panel-border);
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 2px;
+      bottom: 2px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--accent);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: white;
+      border: none;
+      padding: 0.75rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 15px var(--accent-glow);
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(56, 189, 248, 0.4);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Metric Cards */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.5);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+    }
+
+    .metric-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 600;
+    }
+
+    .metric-val {
+      font-size: 1.5rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+    }
+
+    .metric-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Map Box */
+    #map {
+      height: 480px;
+      border-radius: 10px;
+      border: 1px solid var(--panel-border);
+      background: #111;
+      z-index: 10;
+    }
+
+    /* Table */
+    .table-container {
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(15, 23, 42, 0.9);
+      position: sticky;
+      top: 0;
+      padding: 0.75rem 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--panel-border);
+      z-index: 5;
+    }
+
+    td {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .type-badge {
+      display: inline-block;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: 'Inter', sans-serif;
+    }
+    .badge-polygon { background: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .badge-linestring { background: rgba(56, 189, 248, 0.15); color: #38bdf8; }
+    .badge-point { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+
+    /* Recent Files list */
+    .recent-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .recent-item {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid var(--panel-border);
+      padding: 0.65rem 0.9rem;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .recent-item:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.05);
+    }
+
+    .recent-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-main);
+    }
+
+    .recent-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 0.9rem 1.4rem;
+      border-radius: 8px;
+      background: #1e293b;
+      color: #fff;
+      font-size: 0.9rem;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--panel-border);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.3s ease;
+      z-index: 9999;
+    }
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #toast.toast-success { border-color: var(--success); }
+    #toast.toast-error { border-color: var(--danger); }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">A</div>
+      <div>
+        <div class="brand-title">AereoIO</div>
+        <div class="brand-sub">Geospatial File Measurement & Monitoring Dashboard</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <div class="status-badge" id="health-badge">
+        <span class="status-dot"></span> API Online
+      </div>
+      <a href="/docs" target="_blank" class="btn-secondary">Swagger OpenAPI Docs</a>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    
+    <!-- Top Performance Metrics Bar -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-label">HTTP Round-Trip Latency</div>
+        <div class="metric-val" id="metric-http-latency">-- <span style="font-size:0.9rem;color:var(--text-muted)">ms</span></div>
+        <div class="metric-sub" id="metric-http-sub">Ingestion & Receipt</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Backend Processing Time</div>
+        <div class="metric-val" id="metric-backend-time">-- <span style="font-size:0.9rem;color:var(--text-muted)">ms</span></div>
+        <div class="metric-sub" id="metric-backend-sub">Reprojection & Measuring</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Features Extracted</div>
+        <div class="metric-val" id="metric-features">0</div>
+        <div class="metric-sub" id="metric-features-sub">0 Polygons, 0 Lines, 0 Points</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Measured Area</div>
+        <div class="metric-val" id="metric-area">0.00 <span style="font-size:0.9rem;color:var(--text-muted)">m²</span></div>
+        <div class="metric-sub" id="metric-area-sub">0.00 ha | 0.00 km²</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Total Measured Length</div>
+        <div class="metric-val" id="metric-length">0.00 <span style="font-size:0.9rem;color:var(--text-muted)">m</span></div>
+        <div class="metric-sub" id="metric-length-sub">0.00 km</div>
+      </div>
+    </div>
+
+    <!-- Grid: Control Panel (Left) & Geospatial Map / Inspector (Right) -->
+    <div class="dashboard-grid">
+      
+      <!-- Left Column: Upload & History -->
+      <div style="display:flex;flex-direction:column;gap:1.5rem;">
+        
+        <!-- Upload Card -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">📤 Test File Upload</span>
+            <span style="font-size:0.75rem;color:var(--text-muted)">.ZIP (Shapefile) or .KML</span>
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="file-input" accept=".zip,.kml">
+            <span class="drop-icon">🗺️</span>
+            <div class="drop-text">Drag & drop geospatial file here</div>
+            <div class="drop-sub">or click to browse from disk</div>
+            <div class="file-badge" id="file-badge"></div>
+          </div>
+
+          <div class="options-group">
+            <div class="option-item">
+              <span>Synchronous Execution</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="sync-toggle" checked>
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div style="font-size:0.75rem;color:var(--text-muted)">
+              Synchronous waits for immediate calculation results; Async queues to background worker.
+            </div>
+          </div>
+
+          <button class="btn-primary" id="btn-upload" disabled>
+            <span>Process & Measure File</span>
+          </button>
+        </div>
+
+        <!-- File Metadata Card -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">📋 Active File Metadata</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.6rem;font-size:0.85rem;">
+            <div style="display:flex;justify-content:space-between">
+              <span style="color:var(--text-muted)">File ID:</span>
+              <span id="meta-id" style="font-family:'JetBrains Mono',monospace;color:var(--accent)">--</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="color:var(--text-muted)">Filename:</span>
+              <span id="meta-name" style="font-weight:500">None</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="color:var(--text-muted)">Original CRS:</span>
+              <span id="meta-crs" style="font-family:'JetBrains Mono',monospace">--</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span style="color:var(--text-muted)">Status:</span>
+              <span id="meta-status" style="font-weight:600">IDLE</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Uploads List -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🕒 Recent Uploads</span>
+            <button class="btn-secondary" id="btn-refresh-recent" style="padding:0.25rem 0.5rem;font-size:0.75rem">Refresh</button>
+          </div>
+          <div class="recent-list" id="recent-list">
+            <div style="color:var(--text-muted);font-size:0.8rem;text-align:center;padding:1rem">No recent files yet</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Column: Interactive Map & Feature Breakdown -->
+      <div style="display:flex;flex-direction:column;gap:1.5rem;">
+        
+        <!-- Map Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">🗺️ Interactive Geospatial Map</span>
+            <span style="font-size:0.8rem;color:var(--text-muted)">Rendered on OpenStreetMap via Leaflet</span>
+          </div>
+          <div id="map"></div>
+        </div>
+
+        <!-- Detailed Feature Breakdown Table -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">📊 Extracted Feature Measurements & Latency</span>
+          </div>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Index</th>
+                  <th>ID</th>
+                  <th>Geometry</th>
+                  <th>Projected CRS</th>
+                  <th>Measurement</th>
+                  <th>Feature Latency</th>
+                </tr>
+              </thead>
+              <tbody id="features-tbody">
+                <tr>
+                  <td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">
+                    Upload a .zip (Shapefile) or .kml file to inspect feature measurements
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <div id="toast"></div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <script>
+    // State
+    let selectedFile = null;
+    let map = null;
+    let geojsonLayer = null;
+
+    // Elements
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const fileBadge = document.getElementById('file-badge');
+    const btnUpload = document.getElementById('btn-upload');
+    const syncToggle = document.getElementById('sync-toggle');
+    const toast = document.getElementById('toast');
+    const recentList = document.getElementById('recent-list');
+
+    // Init Leaflet Map
+    function initMap() {
+      map = L.map('map', {
+        center: [20, 0],
+        zoom: 2,
+        zoomControl: true
+      });
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://carto.com/">CARTO</a>, &copy; <a href="https://openstreetmap.org">OSM</a>',
+        maxZoom: 19
+      }).addTo(map);
+    }
+
+    function showToast(message, isError = false) {
+      toast.textContent = message;
+      toast.className = isError ? 'show toast-error' : 'show toast-success';
+      setTimeout(() => { toast.className = ''; }, 3500);
+    }
+
+    // File Drag & Drop Events
+    ['dragenter', 'dragover'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropzone.classList.add('dragover');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(name => {
+      dropzone.addEventListener(name, (e) => {
+        e.preventDefault();
+        dropzone.classList.remove('dragover');
+      });
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      if (e.dataTransfer.files.length) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+      if (!['.zip', '.kml'].includes(ext)) {
+        showToast('Only .zip (Shapefiles) and .kml files are supported!', true);
+        return;
+      }
+      selectedFile = file;
+      fileBadge.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      fileBadge.style.display = 'inline-block';
+      btnUpload.disabled = false;
+    }
+
+    // Upload & Process
+    btnUpload.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      btnUpload.disabled = true;
+      btnUpload.innerHTML = '<span>Processing...</span>';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      const isSync = syncToggle.checked;
+      const t0 = performance.now();
+
+      try {
+        const uploadUrl = `/api/files/?sync=${isSync}`;
+        const resp = await fetch(uploadUrl, {
+          method: 'POST',
+          body: formData
+        });
+
+        const t1 = performance.now();
+        const httpLatency = (t1 - t0).toFixed(2);
+        document.getElementById('metric-http-latency').innerHTML = `${httpLatency} <span style="font-size:0.9rem;color:var(--text-muted)">ms</span>`;
+
+        if (!resp.ok) {
+          const err = await resp.json();
+          throw new Error(err.detail || 'Upload failed');
+        }
+
+        const fileRecord = await resp.json();
+        document.getElementById('meta-id').textContent = fileRecord.id;
+        document.getElementById('meta-name').textContent = fileRecord.filename;
+        document.getElementById('meta-crs').textContent = fileRecord.crs;
+        document.getElementById('meta-status').textContent = fileRecord.status;
+
+        showToast(`File uploaded successfully! ID: ${fileRecord.id}`);
+
+        // If async, poll until COMPLETED
+        if (fileRecord.status === 'PROCESSING') {
+          await pollFileStatus(fileRecord.id);
+        } else {
+          await loadFileMeasurements(fileRecord.id);
+        }
+
+        fetchRecentFiles();
+
+      } catch (err) {
+        showToast(`Error: ${err.message}`, true);
+        document.getElementById('meta-status').textContent = 'FAILED';
+      } finally {
+        btnUpload.disabled = false;
+        btnUpload.innerHTML = '<span>Process & Measure File</span>';
+      }
+    });
+
+    async function pollFileStatus(fileId) {
+      document.getElementById('meta-status').textContent = 'PROCESSING...';
+      let attempts = 0;
+      while (attempts < 30) {
+        await new Promise(r => setTimeout(r, 600));
+        attempts++;
+        const resp = await fetch(`/api/files/${fileId}`);
+        if (!resp.ok) break;
+        const data = await resp.json();
+        document.getElementById('meta-status').textContent = data.status;
+        if (data.status === 'COMPLETED') {
+          await loadFileMeasurements(fileId);
+          break;
+        } else if (data.status === 'FAILED') {
+          showToast('File processing failed on server', true);
+          break;
+        }
+      }
+    }
+
+    async function loadFileMeasurements(fileId) {
+      try {
+        const resp = await fetch(`/api/files/${fileId}/measurements`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+
+        // Update Backend Time & Summary
+        if (data.processing_time_ms) {
+          document.getElementById('metric-backend-time').innerHTML = `${data.processing_time_ms.toFixed(2)} <span style="font-size:0.9rem;color:var(--text-muted)">ms</span>`;
+        }
+
+        document.getElementById('metric-features').textContent = data.feature_count;
+        const b = data.summary.geometry_type_breakdown;
+        document.getElementById('metric-features-sub').textContent = 
+          `${b['Polygon'] || b['MultiPolygon'] || 0} Poly, ${b['LineString'] || b['MultiLineString'] || 0} Line, ${b['Point'] || 0} Point`;
+
+        document.getElementById('metric-area').innerHTML = `${data.summary.total_area_sq_m.toLocaleString()} <span style="font-size:0.9rem;color:var(--text-muted)">m²</span>`;
+        document.getElementById('metric-area-sub').textContent = `${data.summary.total_area_hectares} ha | ${data.summary.total_area_sq_km} km²`;
+
+        document.getElementById('metric-length').innerHTML = `${data.summary.total_length_m.toLocaleString()} <span style="font-size:0.9rem;color:var(--text-muted)">m</span>`;
+        document.getElementById('metric-length-sub').textContent = `${data.summary.total_length_km} km`;
+
+        renderFeaturesTable(data.features);
+        renderFeaturesOnMap(data.features);
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderFeaturesTable(features) {
+      const tbody = document.getElementById('features-tbody');
+      if (!features || !features.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:1.5rem">No features found in dataset</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = features.map((f, idx) => {
+        let badgeClass = 'badge-polygon';
+        if (f.geometry_type.includes('Line')) badgeClass = 'badge-linestring';
+        if (f.geometry_type.includes('Point')) badgeClass = 'badge-point';
+
+        let measurementText = 'None';
+        if (f.measurements) {
+          if (f.measurements.area_sq_m !== null && f.measurements.area_sq_m !== undefined) {
+            measurementText = `Area: ${f.measurements.area_sq_m.toLocaleString()} m² (${f.measurements.area_hectares} ha)`;
+          } else if (f.measurements.length_m !== null && f.measurements.length_m !== undefined) {
+            measurementText = `Length: ${f.measurements.length_m.toLocaleString()} m (${f.measurements.length_km} km)`;
+          }
+        } else if (f.notes) {
+          measurementText = `<span style="color:var(--text-muted)">${f.notes}</span>`;
+        }
+
+        const latency = f.processing_time_ms !== null && f.processing_time_ms !== undefined ? `${f.processing_time_ms} ms` : '--';
+
+        return `
+          <tr>
+            <td>#${idx + 1}</td>
+            <td style="color:var(--accent)">${f.feature_id}</td>
+            <td><span class="type-badge ${badgeClass}">${f.geometry_type}</span></td>
+            <td>${f.projected_crs || f.crs}</td>
+            <td>${measurementText}</td>
+            <td style="color:${latency !== '--' ? 'var(--success)' : 'inherit'}">${latency}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function renderFeaturesOnMap(features) {
+      if (geojsonLayer) {
+        map.removeLayer(geojsonLayer);
+      }
+
+      const geojsonFeatures = features.map(f => ({
+        type: 'Feature',
+        geometry: f.geometry,
+        properties: {
+          id: f.feature_id,
+          type: f.geometry_type,
+          crs: f.crs,
+          projected_crs: f.projected_crs,
+          measurements: f.measurements,
+          notes: f.notes,
+          time_ms: f.processing_time_ms
+        }
+      }));
+
+      const geojsonData = {
+        type: 'FeatureCollection',
+        features: geojsonFeatures
+      };
+
+      geojsonLayer = L.geoJSON(geojsonData, {
+        style: function (feature) {
+          const type = feature.geometry.type;
+          if (type.includes('Polygon')) {
+            return { color: '#10b981', weight: 2, fillOpacity: 0.35, fillColor: '#10b981' };
+          } else if (type.includes('Line')) {
+            return { color: '#38bdf8', weight: 4, opacity: 0.9 };
+          }
+          return { color: '#f59e0b', weight: 2 };
+        },
+        pointToLayer: function (feature, latlng) {
+          return L.circleMarker(latlng, {
+            radius: 7,
+            fillColor: '#f59e0b',
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+          });
+        },
+        onEachFeature: function (feature, layer) {
+          const p = feature.properties;
+          let metricStr = p.notes || '';
+          if (p.measurements) {
+            if (p.measurements.area_sq_m) metricStr = `<b>Area:</b> ${p.measurements.area_sq_m.toLocaleString()} m² (${p.measurements.area_hectares} ha)`;
+            if (p.measurements.length_m) metricStr = `<b>Length:</b> ${p.measurements.length_m.toLocaleString()} m (${p.measurements.length_km} km)`;
+          }
+
+          layer.bindPopup(`
+            <div style="font-family:'Inter',sans-serif;color:#0f172a;min-width:180px">
+              <div style="font-weight:700;font-size:0.95rem;margin-bottom:4px;color:#0284c7">${p.id}</div>
+              <div style="font-size:0.8rem;color:#475569"><b>Type:</b> ${p.type}</div>
+              <div style="font-size:0.8rem;color:#475569"><b>Projected CRS:</b> ${p.projected_crs || p.crs}</div>
+              <div style="font-size:0.8rem;margin:6px 0">${metricStr}</div>
+              <div style="font-size:0.75rem;color:#64748b">Latency: ${p.time_ms !== null && p.time_ms !== undefined ? p.time_ms + ' ms' : '--'}</div>
+            </div>
+          `);
+        }
+      }).addTo(map);
+
+      try {
+        const bounds = geojsonLayer.getBounds();
+        if (bounds.isValid()) {
+          map.fitBounds(bounds, { padding: [40, 40] });
+        }
+      } catch (e) {
+        console.error("Could not fit map bounds:", e);
+      }
+    }
+
+    async function fetchRecentFiles() {
+      try {
+        const resp = await fetch('/api/files/?limit=8');
+        if (!resp.ok) return;
+        const files = await resp.json();
+
+        if (!files.length) {
+          recentList.innerHTML = '<div style="color:var(--text-muted);font-size:0.8rem;text-align:center;padding:1rem">No recent files yet</div>';
+          return;
+        }
+
+        recentList.innerHTML = files.map(f => `
+          <div class="recent-item" onclick="loadFileMeasurements('${f.id}')">
+            <div>
+              <div class="recent-name">${f.filename}</div>
+              <div class="recent-meta">${f.feature_count} features | ${f.crs}</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:0.75rem;font-weight:600;color:${f.status === 'COMPLETED' ? 'var(--success)' : 'var(--warning)'}">${f.status}</div>
+              <div style="font-size:0.7rem;color:var(--text-muted)">${f.processing_time_ms ? f.processing_time_ms.toFixed(1) + ' ms' : ''}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    document.getElementById('btn-refresh-recent').addEventListener('click', fetchRecentFiles);
+
+    // Initial load
+    initMap();
+    fetchRecentFiles();
+  </script>
+</body>
+</html>

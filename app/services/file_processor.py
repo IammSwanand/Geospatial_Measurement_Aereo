@@ -16,6 +16,7 @@ def process_geospatial_file(file_id: str, file_path_str: str, db: Optional[Sessi
     Worker task to parse, reproject, measure, and persist geospatial file contents.
     Tracks exact per-feature latency and total processing duration.
     """
+    t_file_start = time.perf_counter()
     file_path = Path(file_path_str)
     close_db_on_exit = False
     if db is None:
@@ -35,9 +36,11 @@ def process_geospatial_file(file_id: str, file_path_str: str, db: Optional[Sessi
 
         feature_records: list[FeatureRecord] = []
         for feature in dataset.features:
+            t_feat_start = time.perf_counter()
             measurements, proj_crs, notes = MeasurementService.calculate_measurements(
                 feature.geometry, feature.crs
             )
+            feat_duration_ms = round((time.perf_counter() - t_feat_start) * 1000, 3)
             geom_geojson = mapping(feature.geometry)
 
             feat_record = FeatureRecord(
@@ -50,17 +53,20 @@ def process_geospatial_file(file_id: str, file_path_str: str, db: Optional[Sessi
                 original_crs=feature.crs,
                 projected_crs=proj_crs,
                 measurements=measurements,
+                processing_time_ms=feat_duration_ms,
                 notes=notes,
             )
             feature_records.append(feat_record)
 
         # Batch insert for high performance and scalability
         db.bulk_save_objects(feature_records)
+        total_duration_ms = round((time.perf_counter() - t_file_start) * 1000, 2)
+        file_record.processing_time_ms = total_duration_ms
         file_record.status = "COMPLETED"
         db.commit()
         logger.info(
-            "Successfully processed file %s with %d features.",
-            file_id, len(feature_records)
+            "Successfully processed file %s with %d features in %.2f ms.",
+            file_id, len(feature_records), total_duration_ms
         )
 
     except Exception as e:

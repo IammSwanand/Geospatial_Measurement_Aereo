@@ -8,6 +8,7 @@ class FileBaseResponse(BaseModel):
     feature_count: int
     crs: str
     status: str
+    processing_time_ms: Optional[float] = Field(None, description="Processing duration in milliseconds")
 
     model_config = {"from_attributes": True}
 
@@ -33,6 +34,7 @@ class FeatureResponse(BaseModel):
     projected_crs: Optional[str] = Field(None, description="Projected CRS used for measurement calculations")
     properties: Dict[str, Any] = Field(default_factory=dict)
     measurements: Optional[FeatureMeasurementDetail] = None
+    processing_time_ms: Optional[float] = Field(None, description="Per-feature processing latency in milliseconds")
     notes: Optional[str] = None
 
     model_config = {"from_attributes": True}
@@ -51,6 +53,7 @@ class FileMeasurementsResponse(BaseModel):
     crs: str
     status: str
     feature_count: int
+    processing_time_ms: Optional[float] = Field(None, description="Total processing time in milliseconds")
     summary: MeasurementSummary
     features: List[FeatureResponse]
 

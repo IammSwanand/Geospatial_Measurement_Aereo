@@ -197,6 +197,7 @@ def get_file_measurements(file_id: str, db: Session = Depends(get_db)):
                 projected_crs=f.projected_crs,
                 properties=f.properties or {},
                 measurements=measurements_detail,
+                processing_time_ms=f.processing_time_ms,
                 notes=f.notes,
             )
         )
@@ -216,6 +217,7 @@ def get_file_measurements(file_id: str, db: Session = Depends(get_db)):
         crs=file_record.crs,
         status=file_record.status,
         feature_count=file_record.feature_count,
+        processing_time_ms=file_record.processing_time_ms,
         summary=summary,
         features=feature_responses,
     )

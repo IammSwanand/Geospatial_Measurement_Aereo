@@ -18,6 +18,7 @@ class FileRecord(Base):
     feature_count = Column(Integer, default=0)
     status = Column(String(50), default="PROCESSING")  # PROCESSING, COMPLETED, FAILED
     error_message = Column(Text, nullable=True)
+    processing_time_ms = Column(Float, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -36,6 +37,7 @@ class FeatureRecord(Base):
     original_crs = Column(String(100), nullable=False)
     projected_crs = Column(String(100), nullable=True)
     measurements = Column(JSON, nullable=True)  # {'area_sq_m': ..., 'length_m': ...}
+    processing_time_ms = Column(Float, nullable=True)
     notes = Column(Text, nullable=True)
 
     file = relationship("FileRecord", back_populates="features")

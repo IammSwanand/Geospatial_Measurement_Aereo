@@ -25,5 +25,16 @@ def get_db():
         db.close()
 
 def init_db():
-    """Initializes database tables."""
+    """Initializes tables and automatically ensures new columns exist."""
     Base.metadata.create_all(bind=engine)
+    if settings.DATABASE_URL.startswith("sqlite"):
+        with engine.connect() as conn:
+            for sql in (
+                "ALTER TABLE files ADD COLUMN processing_time_ms FLOAT",
+                "ALTER TABLE features ADD COLUMN processing_time_ms FLOAT",
+            ):
+                try:
+                    conn.execute(text(sql))
+                    conn.commit()
+                except Exception:
+                    pass

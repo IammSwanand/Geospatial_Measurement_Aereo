@@ -1,12 +1,13 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from app.core.config import settings
 from app.core.exceptions import GeospatialError, InvalidGeospatialFileError, UnsupportedFileFormatError
 from app.db.session import init_db
 from app.api.router import api_router
 
+DASHBOARD_HTML = settings.BASE_DIR / "app" / "static" / "index.html"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,11 +58,17 @@ async def geospatial_error_handler(request: Request, exc: GeospatialError):
 # Include API router under /api
 app.include_router(api_router, prefix="/api")
 
+@app.get("/dashboard", tags=["Dashboard"], include_in_schema=False)
+def dashboard():
+    """Serves the interactive geospatial monitoring dashboard."""
+    return FileResponse(DASHBOARD_HTML, media_type="text/html")
+
 @app.get("/", tags=["Root"])
 def root():
     return {
         "service": settings.PROJECT_NAME,
         "version": settings.VERSION,
+        "interactive_dashboard": "/dashboard",
         "documentation": "/docs",
         "endpoints": {
             "upload_file": "POST /api/files/",
